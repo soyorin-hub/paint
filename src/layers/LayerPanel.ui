@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>LayerPanel</class>
+ <widget class="QWidget" name="LayerPanel">
+  <property name="geometry">
+   <rect>
+    <x>0</x><y>0</y><width>200</width><height>300</height>
+   </rect>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <property name="leftMargin"><number>4</number></property>
+   <property name="topMargin"><number>4</number></property>
+   <property name="rightMargin"><number>4</number></property>
+   <property name="bottomMargin"><number>4</number></property>
+   <item>
+    <widget class="QLabel" name="titleLabel">
+     <property name="text"><string>图层</string></property>
+     <property name="font"><font><bold>true</bold><pointsize>11</pointsize></font></property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QListWidget" name="layerList">
+     <property name="minimumHeight"><number>100</number></property>
+     <property name="selectionMode"><enum>QAbstractItemView::SingleSelection</enum></property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <item>
+      <widget class="QPushButton" name="addBtn">
+       <property name="text"><string>+</string></property>
+       <property name="toolTip"><string>新建图层</string></property>
+       <property name="maximumWidth"><number>32</number></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="removeBtn">
+       <property name="text"><string>-</string></property>
+       <property name="toolTip"><string>删除图层</string></property>
+       <property name="maximumWidth"><number>32</number></property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="spacer">
+       <property name="orientation"><enum>Qt::Horizontal</enum></property>
+       <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="upBtn">
+       <property name="text"><string>↑</string></property>
+       <property name="toolTip"><string>上移</string></property>
+       <property name="maximumWidth"><number>32</number></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="downBtn">
+       <property name="text"><string>↓</string></property>
+       <property name="toolTip"><string>下移</string></property>
+       <property name="maximumWidth"><number>32</number></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="visibilityLayout">
+     <item>
+      <widget class="QCheckBox" name="visibleCheck">
+       <property name="text"><string>可见</string></property>
+       <property name="checked"><bool>true</bool></property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="lockCheck">
+       <property name="text"><string>锁定</string></property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+</ui>

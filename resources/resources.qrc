@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/app.svg</file>
+        <file>icons/select.svg</file>
+        <file>icons/rect.svg</file>
+        <file>icons/ellipse.svg</file>
+        <file>icons/line.svg</file>
+        <file>icons/freehand.svg</file>
+        <file>icons/undo.svg</file>
+        <file>icons/redo.svg</file>
+    </qresource>
+</RCC>
