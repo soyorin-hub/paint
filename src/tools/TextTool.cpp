@@ -3,7 +3,6 @@
 #include "canvas/CanvasScene.h"
 #include "commands/AddShapeCommand.h"
 #include <QGraphicsSceneMouseEvent>
-#include <QPainter>
 
 TextTool::TextTool(QObject *parent)
     : ToolBase(parent)
@@ -13,14 +12,7 @@ TextTool::TextTool(QObject *parent)
 
 QIcon TextTool::icon() const
 {
-    QPixmap pix(24, 24);
-    pix.fill(Qt::transparent);
-    QPainter p(&pix);
-    p.setPen(QPen(QColor("#333"), 2));
-    p.setFont(QFont("Arial", 14, QFont::Bold));
-    p.drawText(pix.rect(), Qt::AlignCenter, "T");
-    p.end();
-    return QIcon(pix);
+    return QIcon(":/icons/text.svg");
 }
 
 void TextTool::mousePressEvent(QGraphicsSceneMouseEvent *event, CanvasScene *scene)
@@ -35,7 +27,8 @@ void TextTool::mousePressEvent(QGraphicsSceneMouseEvent *event, CanvasScene *sce
     scene->addItem(shape);
     scene->clearSelection();
     shape->setSelected(true);
-    scene->pushUndoCommand(new AddShapeCommand(shape, scene, nullptr));
+    scene->pushUndoCommand(new AddShapeCommand(shape, scene, scene->activeLayer(),
+                                                tr("添加文字")));
     scene->setModified(true);
 }
 

@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QFile>
 #include "app/MainWindow.h"
 
 int main(int argc, char *argv[])
@@ -12,6 +13,13 @@ int main(int argc, char *argv[])
     QFont defaultFont = app.font();
     defaultFont.setPointSize(10);
     app.setFont(defaultFont);
+
+    // 加载全局主题样式
+    QFile themeFile(":/theme.qss");
+    if (themeFile.open(QFile::ReadOnly | QFile::Text)) {
+        app.setStyleSheet(QString::fromUtf8(themeFile.readAll()));
+        themeFile.close();
+    }
 
     MainWindow window;
     window.resize(1280, 800);
