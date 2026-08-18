@@ -3,9 +3,10 @@
 #include "shapes/ShapeBase.h"
 #include "commands/RemoveShapeCommand.h"
 #include "tools/ToolManager.h"
+#include "document/Document.h"
+#include "layers/Layer.h"
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsRectItem>
-#include <QPainter>
 #include <QPen>
 
 EraserTool::EraserTool(QObject *parent)
@@ -15,14 +16,7 @@ EraserTool::EraserTool(QObject *parent)
 
 QIcon EraserTool::icon() const
 {
-    QPixmap pix(24, 24);
-    pix.fill(Qt::transparent);
-    QPainter p(&pix);
-    p.setPen(QPen(QColor("#333"), 1.5));
-    p.setBrush(QColor("#ff6666"));
-    p.drawRoundedRect(4, 6, 16, 12, 2, 2);
-    p.end();
-    return QIcon(pix);
+    return QIcon(":/icons/eraser.svg");
 }
 
 void EraserTool::mousePressEvent(QGraphicsSceneMouseEvent *event, CanvasScene *scene)
@@ -72,12 +66,15 @@ void EraserTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScene 
 
     // 批量删除
     auto *manager = scene->toolManager();
+    Document *doc = scene->document();
     if (manager && manager->undoStack()) {
         manager->undoStack()->beginMacro(tr("橡皮擦删除"));
         for (auto *item : items) {
             ShapeBase *shape = dynamic_cast<ShapeBase*>(item);
             if (shape && !shape->parentItem()) {
-                manager->pushCommand(new RemoveShapeCommand(shape, scene, nullptr));
+                Layer *layer = doc ? doc->layerOf(shape) : nullptr;
+                if (layer && layer->isLocked()) continue;  // 锁定图层不删除
+                manager->pushCommand(new RemoveShapeCommand(shape, scene, layer));
             }
         }
         manager->undoStack()->endMacro();
@@ -86,7 +83,10 @@ void EraserTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScene 
         for (auto *item : items) {
             ShapeBase *shape = dynamic_cast<ShapeBase*>(item);
             if (shape && !shape->parentItem()) {
+                Layer *layer = doc ? doc->layerOf(shape) : nullptr;
+                if (layer && layer->isLocked()) continue;
                 scene->removeItem(shape);
+                if (layer) layer->removeShape(shape);
                 delete shape;
             }
         }

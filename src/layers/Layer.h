@@ -36,6 +36,7 @@ public:
     // 图形管理
     void addShape(ShapeBase *shape);
     void removeShape(ShapeBase *shape);
+    void reorderShapes(const QList<ShapeBase*> &newOrder);
     QList<ShapeBase*> shapes() const { return m_shapes; }
     int shapeCount() const { return m_shapes.size(); }
     bool isEmpty() const { return m_shapes.isEmpty(); }

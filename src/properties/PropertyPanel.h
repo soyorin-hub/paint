@@ -34,7 +34,9 @@ private slots:
 
 private:
     void updateFromShape(ShapeBase *shape);
-    void applyToShape(ShapeBase *shape);
+    void applyStyleToSelection();
+    void applyPositionToSelection();
+    void applySizeToSelection();
     void blockSignals(bool block);
 
     Ui::PropertyPanel *ui;

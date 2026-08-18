@@ -19,9 +19,16 @@
     </widget>
    </item>
    <item>
-    <widget class="QListWidget" name="layerList">
-     <property name="minimumHeight"><number>100</number></property>
+    <widget class="QTreeWidget" name="layerTree">
+     <property name="minimumHeight"><number>160</number></property>
      <property name="selectionMode"><enum>QAbstractItemView::SingleSelection</enum></property>
+     <property name="headerHidden"><bool>true</bool></property>
+     <property name="indentation"><number>24</number></property>
+     <property name="rootIsDecorated"><bool>false</bool></property>
+     <property name="focusPolicy"><enum>Qt::NoFocus</enum></property>
+     <column>
+      <property name="text"><string>名称</string></property>
+     </column>
     </widget>
    </item>
    <item>

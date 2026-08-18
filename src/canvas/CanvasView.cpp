@@ -1,8 +1,12 @@
 #include "CanvasView.h"
 #include "CanvasScene.h"
 #include "tools/ToolManager.h"
+#include "tools/ToolBase.h"
+#include "shapes/ShapeBase.h"
 #include <QWheelEvent>
 #include <QMouseEvent>
+#include <QKeyEvent>
+#include <QContextMenuEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
@@ -17,6 +21,7 @@ CanvasView::CanvasView(QWidget *parent) : QGraphicsView(parent)
     setResizeAnchor(QGraphicsView::AnchorUnderMouse);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
     setMouseTracking(true);
+    setFocusPolicy(Qt::ClickFocus);
     setBackgroundBrush(QBrush(QColor(252, 252, 252)));
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
@@ -51,17 +56,60 @@ void CanvasView::zoomFit() { if(!scene())return; fitInView(scene()->sceneRect(),
 void CanvasView::applyZoom(qreal f, QPointF c) { qreal nl=m_zoomLevel*f; if(nl<MIN_ZOOM||nl>MAX_ZOOM)return; m_zoomLevel=nl; scale(f,f); emit zoomChanged(m_zoomLevel); }
 void CanvasView::wheelEvent(QWheelEvent *e) { if(e->modifiers()&Qt::ControlModifier){ qreal f=(e->angleDelta().y()>0)?(1.0+ZOOM_STEP):1.0/(1.0+ZOOM_STEP); applyZoom(f,e->position()); } else QGraphicsView::wheelEvent(e); }
 
+void CanvasView::keyPressEvent(QKeyEvent *event)
+{
+    // 文字编辑时，方向键交给编辑器处理
+    auto *cs = qobject_cast<CanvasScene*>(scene());
+    if (cs && cs->isTextEditing()) {
+        QGraphicsView::keyPressEvent(event);
+        return;
+    }
+
+    qreal step = (event->modifiers() & Qt::ShiftModifier) ? 10.0 : 1.0;
+    switch (event->key()) {
+    case Qt::Key_Left:  emit nudgeRequested(-step, 0); event->accept(); return;
+    case Qt::Key_Right: emit nudgeRequested(step, 0);  event->accept(); return;
+    case Qt::Key_Up:    emit nudgeRequested(0, -step); event->accept(); return;
+    case Qt::Key_Down:  emit nudgeRequested(0, step);  event->accept(); return;
+    default: break;
+    }
+    QGraphicsView::keyPressEvent(event);
+}
+
+void CanvasView::contextMenuEvent(QContextMenuEvent *event)
+{
+    // 无论是否命中图形都发出，由 MainWindow 决定显示哪种菜单
+    emit contextMenuRequested(mapToScene(event->pos()), event->globalPos());
+}
+
 // ═══════════════════════════════════════════════════
-// 核心：CanvasView 始终转发 move 事件给 ToolManager
+// 鼠标事件
 // ═══════════════════════════════════════════════════
+
+static bool toolHandlesAlt(CanvasScene *cs)
+{
+    if (cs && cs->toolManager() && cs->toolManager()->activeTool())
+        return cs->toolManager()->activeTool()->handlesAltModifier();
+    return false;
+}
 
 void CanvasView::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::MiddleButton ||
-        (event->button() == Qt::LeftButton && event->modifiers() & Qt::AltModifier)) {
+    // 中键 = 平移
+    if (event->button() == Qt::MiddleButton) {
         m_isPanning = true; m_panStart = event->pos();
         setCursor(Qt::ClosedHandCursor); event->accept(); return;
     }
+
+    // Alt+左键 = 平移（仅当工具不自行处理 Alt 时）
+    auto *cs = static_cast<CanvasScene*>(scene());
+    if (event->button() == Qt::LeftButton
+        && (event->modifiers() & Qt::AltModifier)
+        && !toolHandlesAlt(cs)) {
+        m_isPanning = true; m_panStart = event->pos();
+        setCursor(Qt::ClosedHandCursor); event->accept(); return;
+    }
+
     QGraphicsView::mousePressEvent(event);
 }
 
@@ -74,24 +122,12 @@ void CanvasView::mouseMoveEvent(QMouseEvent *event)
         event->accept(); return;
     }
 
-    // ★ 无条件转发：不管有没有 grabber，都保证 ToolManager 收到 move
-    auto *cs = static_cast<CanvasScene*>(scene());
-    if (cs && cs->toolManager()) {
-        QGraphicsSceneMouseEvent me(QEvent::GraphicsSceneMouseMove);
-        me.setWidget(viewport());
-        me.setScenePos(mapToScene(event->position().toPoint()));
-        me.setScreenPos(event->globalPosition().toPoint());
-        me.setButton(Qt::LeftButton);
-        me.setButtons(event->buttons());
-        me.setModifiers(event->modifiers());
-        cs->toolManager()->mouseMoveEvent(&me);
-    }
-
     QGraphicsView::mouseMoveEvent(event);
 }
 
 void CanvasView::mouseReleaseEvent(QMouseEvent *event)
 {
     if (m_isPanning) { m_isPanning=false; setCursor(Qt::ArrowCursor); event->accept(); return; }
+
     QGraphicsView::mouseReleaseEvent(event);
 }

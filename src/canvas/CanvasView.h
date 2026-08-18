@@ -20,12 +20,16 @@ public:
 
 signals:
     void zoomChanged(qreal zoomLevel);
+    void nudgeRequested(qreal dx, qreal dy);
+    void contextMenuRequested(const QPointF &scenePos, const QPoint &globalPos);
 
 protected:
     void wheelEvent(QWheelEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void contextMenuEvent(QContextMenuEvent *event) override;
     void drawBackground(QPainter *painter, const QRectF &rect) override;
 
 private:

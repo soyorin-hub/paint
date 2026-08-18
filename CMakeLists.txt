@@ -36,6 +36,12 @@ set(SOURCES
     src/shapes/EllipseShape.cpp
     src/shapes/LineShape.h
     src/shapes/LineShape.cpp
+    src/shapes/TriangleShape.h
+    src/shapes/TriangleShape.cpp
+    src/shapes/DiamondShape.h
+    src/shapes/DiamondShape.cpp
+    src/shapes/ArrowShape.h
+    src/shapes/ArrowShape.cpp
     src/shapes/FreehandShape.h
     src/shapes/FreehandShape.cpp
     src/shapes/TextShape.h
@@ -47,12 +53,8 @@ set(SOURCES
     src/tools/ToolManager.cpp
     src/tools/SelectTool.h
     src/tools/SelectTool.cpp
-    src/tools/RectTool.h
-    src/tools/RectTool.cpp
-    src/tools/EllipseTool.h
-    src/tools/EllipseTool.cpp
-    src/tools/LineTool.h
-    src/tools/LineTool.cpp
+    src/tools/ShapeTool.h
+    src/tools/ShapeTool.cpp
     src/tools/FreehandTool.h
     src/tools/FreehandTool.cpp
     src/tools/TextTool.h
@@ -67,6 +69,9 @@ set(SOURCES
     # Properties
     src/properties/PropertyPanel.h
     src/properties/PropertyPanel.cpp
+    # History
+    src/history/HistoryPanel.h
+    src/history/HistoryPanel.cpp
     # Document
     src/document/Document.h
     src/document/Document.cpp
@@ -81,6 +86,24 @@ set(SOURCES
     src/commands/TransformCommand.cpp
     src/commands/StyleCommand.h
     src/commands/StyleCommand.cpp
+    src/commands/LineCommand.h
+    src/commands/LineCommand.cpp
+    src/commands/TextCommand.h
+    src/commands/TextCommand.cpp
+    src/commands/ResizeCommand.h
+    src/commands/ResizeCommand.cpp
+    src/commands/FontCommand.h
+    src/commands/FontCommand.cpp
+    src/commands/LayerCommand.h
+    src/commands/LayerCommand.cpp
+    src/commands/RotateCommand.h
+    src/commands/RotateCommand.cpp
+    src/commands/GroupCommand.h
+    src/commands/GroupCommand.cpp
+    src/commands/ReorderShapesCommand.h
+    src/commands/ReorderShapesCommand.cpp
+    src/commands/GroupRenameCommand.h
+    src/commands/GroupRenameCommand.cpp
 )
 
 # UI files

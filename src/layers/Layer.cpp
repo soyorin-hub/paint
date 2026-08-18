@@ -39,6 +39,11 @@ void Layer::setLocked(bool locked)
 {
     if (m_locked != locked) {
         m_locked = locked;
+        // 锁定图层上的图形不可选中/移动
+        for (auto *shape : m_shapes) {
+            shape->setFlag(QGraphicsItem::ItemIsSelectable, !locked);
+            shape->setFlag(QGraphicsItem::ItemIsMovable, !locked);
+        }
         emit lockChanged(m_locked);
         emit changed();
     }
@@ -59,6 +64,8 @@ void Layer::addShape(ShapeBase *shape)
     m_shapes.append(shape);
     shape->setVisible(m_visible);
     shape->setOpacity(m_opacity);
+    shape->setFlag(QGraphicsItem::ItemIsSelectable, !m_locked);
+    shape->setFlag(QGraphicsItem::ItemIsMovable, !m_locked);
     emit changed();
 }
 
@@ -67,6 +74,13 @@ void Layer::removeShape(ShapeBase *shape)
     if (m_shapes.removeOne(shape)) {
         emit changed();
     }
+}
+
+void Layer::reorderShapes(const QList<ShapeBase*> &newOrder)
+{
+    if (newOrder.size() != m_shapes.size()) return;
+    m_shapes = newOrder;
+    emit changed();
 }
 
 void Layer::applyToScene(QGraphicsScene *scene)

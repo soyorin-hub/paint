@@ -39,16 +39,37 @@ Layer *Document::addLayer(const QString &name)
     return layer;
 }
 
-void Document::removeLayer(int index)
+void Document::insertLayer(int index, Layer *layer)
 {
-    if (index < 0 || index >= m_layers.size()) return;
-    if (m_layers.size() <= 1) return; // 至少保留一个图层
+    if (!layer) return;
+    m_layers.insert(index, layer);
+    connect(layer, &Layer::changed, this, &Document::modified);
+    emit layerAdded(layer, index);
+    emit activeLayerChanged(activeLayer());
+}
 
-    delete m_layers.takeAt(index);
+Layer *Document::takeLayer(int index)
+{
+    if (index < 0 || index >= m_layers.size()) return nullptr;
+    Layer *prevActive = activeLayer();
+    Layer *layer = m_layers.takeAt(index);
     if (m_activeLayerIndex >= m_layers.size()) {
         m_activeLayerIndex = m_layers.size() - 1;
     }
     emit layerRemoved(index);
+    if (activeLayer() != prevActive)
+        emit activeLayerChanged(activeLayer());
+    return layer;
+}
+
+Layer *Document::layerOf(ShapeBase *shape) const
+{
+    if (!shape) return nullptr;
+    for (auto *layer : m_layers) {
+        if (layer->shapes().contains(shape))
+            return layer;
+    }
+    return nullptr;
 }
 
 void Document::moveLayer(int from, int to)
@@ -74,6 +95,45 @@ void Document::applyToScene(QGraphicsScene *scene)
     }
 }
 
+// ===== 组名管理 =====
+
+void Document::registerGroup(qint64 id, const QString &name)
+{
+    if (id < 0 || m_groupNames.contains(id)) return;
+    m_groupNames.insert(id, name);
+    emit groupsChanged();
+}
+
+void Document::unregisterGroup(qint64 id)
+{
+    if (m_groupNames.remove(id) > 0)
+        emit groupsChanged();
+}
+
+void Document::setGroupName(qint64 id, const QString &name)
+{
+    if (!m_groupNames.contains(id) || m_groupNames.value(id) == name) return;
+    m_groupNames.insert(id, name);
+    emit groupsChanged();
+}
+
+QString Document::groupName(qint64 id) const
+{
+    return m_groupNames.value(id);
+}
+
+QList<qint64> Document::groupIds() const
+{
+    return m_groupNames.keys();
+}
+
+void Document::setGroupNames(const QMap<qint64, QString> &names)
+{
+    if (m_groupNames == names) return;
+    m_groupNames = names;
+    emit groupsChanged();
+}
+
 QJsonObject Document::toJson() const
 {
     QJsonObject obj;
@@ -88,6 +148,15 @@ QJsonObject Document::toJson() const
         layerArray.append(layer->toJson());
     }
     obj["layers"] = layerArray;
+
+    QJsonArray groupsArray;
+    for (auto it = m_groupNames.constBegin(); it != m_groupNames.constEnd(); ++it) {
+        QJsonObject g;
+        g["id"]   = static_cast<double>(it.key());
+        g["name"] = it.value();
+        groupsArray.append(g);
+    }
+    obj["groups"] = groupsArray;
     return obj;
 }
 
@@ -108,6 +177,15 @@ Document *Document::fromJson(const QJsonObject &obj)
         connect(layer, &Layer::changed, doc, &Document::modified);
     }
 
+    if (obj.contains("groups")) {
+        QJsonArray groupsArray = obj["groups"].toArray();
+        for (const QJsonValue &val : groupsArray) {
+            QJsonObject g = val.toObject();
+            doc->m_groupNames.insert(
+                static_cast<qint64>(g["id"].toDouble()), g["name"].toString());
+        }
+    }
+
     if (doc->m_layers.isEmpty()) {
         doc->addLayer(tr("图层 1"));
     }
@@ -119,4 +197,5 @@ void Document::clear()
     qDeleteAll(m_layers);
     m_layers.clear();
     m_activeLayerIndex = 0;
+    m_groupNames.clear();
 }

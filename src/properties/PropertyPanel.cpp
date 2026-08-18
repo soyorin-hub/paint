@@ -2,8 +2,9 @@
 #include "ui_PropertyPanel.h"
 #include "canvas/CanvasScene.h"
 #include "shapes/ShapeBase.h"
-#include "shapes/RectShape.h"
-#include "shapes/EllipseShape.h"
+#include "commands/StyleCommand.h"
+#include "commands/TransformCommand.h"
+#include "commands/ResizeCommand.h"
 #include <QColorDialog>
 #include <QGraphicsItem>
 
@@ -51,10 +52,8 @@ void PropertyPanel::setScene(CanvasScene *scene)
 void PropertyPanel::clearSelection()
 {
     m_updating = true;
-    ui->fillColorBtn->setStyleSheet(
-        "background-color: #ffffff; border: 1px solid #888; border-radius: 2px;");
-    ui->strokeColorBtn->setStyleSheet(
-        "background-color: #000000; border: 1px solid #888; border-radius: 2px;");
+    ui->fillColorBtn->setStyleSheet("background-color: #ffffff;");
+    ui->strokeColorBtn->setStyleSheet("background-color: #000000;");
     ui->strokeWidthSpin->setValue(2);
     ui->xSpin->setValue(0);
     ui->ySpin->setValue(0);
@@ -93,12 +92,12 @@ void PropertyPanel::updateFromShape(ShapeBase *shape)
 
     // 填充色
     ui->fillColorBtn->setStyleSheet(
-        QString("background-color: %1; border: 1px solid #888; border-radius: 2px;")
+        QString("background-color: %1;")
             .arg(m_currentStyle.fillColor.name()));
 
     // 描边色
     ui->strokeColorBtn->setStyleSheet(
-        QString("background-color: %1; border: 1px solid #888; border-radius: 2px;")
+        QString("background-color: %1;")
             .arg(m_currentStyle.strokeColor.name()));
 
     // 线宽
@@ -116,10 +115,57 @@ void PropertyPanel::updateFromShape(ShapeBase *shape)
     m_updating = false;
 }
 
-void PropertyPanel::applyToShape(ShapeBase *shape)
+void PropertyPanel::applyStyleToSelection()
 {
-    if (!shape) return;
-    shape->setShapeStyle(m_currentStyle);
+    if (!m_scene) return;
+    QList<QGraphicsItem*> selected = m_scene->selectedItems();
+    if (selected.isEmpty()) return;
+
+    m_scene->beginUndoMacro(tr("更改样式"));
+    for (auto *item : selected) {
+        ShapeBase *shape = dynamic_cast<ShapeBase*>(item);
+        if (!shape) continue;
+        ShapeStyle oldStyle = shape->shapeStyle();
+        if (oldStyle == m_currentStyle) continue;
+        m_scene->pushUndoCommand(new StyleCommand(shape, oldStyle, m_currentStyle));
+    }
+    m_scene->endUndoMacro();
+    m_scene->setModified(true);
+}
+
+void PropertyPanel::applyPositionToSelection()
+{
+    if (!m_scene) return;
+    QList<QGraphicsItem*> selected = m_scene->selectedItems();
+    if (selected.isEmpty()) return;
+
+    QPointF newPos(ui->xSpin->value(), ui->ySpin->value());
+    m_scene->beginUndoMacro(tr("移动图形"));
+    for (auto *item : selected) {
+        if (item->pos() == newPos) continue;
+        m_scene->pushUndoCommand(new TransformCommand(
+            item, item->pos(), item->transform(), newPos, item->transform()));
+    }
+    m_scene->endUndoMacro();
+    m_scene->setModified(true);
+}
+
+void PropertyPanel::applySizeToSelection()
+{
+    if (!m_scene) return;
+    QList<QGraphicsItem*> selected = m_scene->selectedItems();
+    if (selected.isEmpty()) return;
+
+    QSizeF newSize(ui->wSpin->value(), ui->hSpin->value());
+    m_scene->beginUndoMacro(tr("缩放图形"));
+    for (auto *item : selected) {
+        ShapeBase *shape = dynamic_cast<ShapeBase*>(item);
+        if (!shape || shape->size().isEmpty()) continue;
+        if (shape->size() == newSize) continue;
+        m_scene->pushUndoCommand(new ResizeCommand(
+            shape, shape->pos(), shape->size(), shape->pos(), newSize));
+    }
+    m_scene->endUndoMacro();
     m_scene->setModified(true);
 }
 
@@ -132,15 +178,8 @@ void PropertyPanel::onFillColorClicked()
 
     m_currentStyle.fillColor = color;
     ui->fillColorBtn->setStyleSheet(
-        QString("background-color: %1; border: 1px solid #888; border-radius: 2px;")
-            .arg(color.name()));
-
-    if (!m_scene) return;
-    QList<QGraphicsItem*> selected = m_scene->selectedItems();
-    for (auto *item : selected) {
-        ShapeBase *shape = dynamic_cast<ShapeBase*>(item);
-        if (shape) applyToShape(shape);
-    }
+        QString("background-color: %1;").arg(color.name()));
+    applyStyleToSelection();
 }
 
 void PropertyPanel::onStrokeColorClicked()
@@ -150,57 +189,27 @@ void PropertyPanel::onStrokeColorClicked()
 
     m_currentStyle.strokeColor = color;
     ui->strokeColorBtn->setStyleSheet(
-        QString("background-color: %1; border: 1px solid #888; border-radius: 2px;")
-            .arg(color.name()));
-
-    if (!m_scene) return;
-    QList<QGraphicsItem*> selected = m_scene->selectedItems();
-    for (auto *item : selected) {
-        ShapeBase *shape = dynamic_cast<ShapeBase*>(item);
-        if (shape) applyToShape(shape);
-    }
+        QString("background-color: %1;").arg(color.name()));
+    applyStyleToSelection();
 }
 
 void PropertyPanel::onStrokeWidthChanged(int width)
 {
     if (m_updating) return;
     m_currentStyle.strokeWidth = width;
-
-    if (!m_scene) return;
-    QList<QGraphicsItem*> selected = m_scene->selectedItems();
-    for (auto *item : selected) {
-        ShapeBase *shape = dynamic_cast<ShapeBase*>(item);
-        if (shape) applyToShape(shape);
-    }
+    applyStyleToSelection();
 }
 
 void PropertyPanel::onPositionChanged()
 {
-    if (m_updating || !m_scene) return;
-
-    QList<QGraphicsItem*> selected = m_scene->selectedItems();
-    for (auto *item : selected) {
-        item->setPos(ui->xSpin->value(), ui->ySpin->value());
-        m_scene->setModified(true);
-    }
+    if (m_updating) return;
+    applyPositionToSelection();
 }
 
 void PropertyPanel::onSizeChanged()
 {
-    if (m_updating || !m_scene) return;
-
-    QList<QGraphicsItem*> selected = m_scene->selectedItems();
-    for (auto *item : selected) {
-        // 尝试设置矩形大小（对矩形和椭圆有效）
-        auto *rectShape = dynamic_cast<RectShape*>(item);
-        auto *ellipseShape = dynamic_cast<EllipseShape*>(item);
-        if (rectShape) {
-            rectShape->setRect(QRectF(0, 0, ui->wSpin->value(), ui->hSpin->value()));
-        } else if (ellipseShape) {
-            ellipseShape->setRect(QRectF(0, 0, ui->wSpin->value(), ui->hSpin->value()));
-        }
-        m_scene->setModified(true);
-    }
+    if (m_updating) return;
+    applySizeToSelection();
 }
 
 void PropertyPanel::blockSignals(bool block)
