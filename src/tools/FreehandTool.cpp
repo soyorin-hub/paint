@@ -7,6 +7,30 @@
 
 FreehandTool::FreehandTool(QObject *parent) : ToolBase(parent) {}
 
+void FreehandTool::setStrokeColor(const QColor &color)
+{
+    if (m_strokeColor != color) {
+        m_strokeColor = color;
+        emit strokeColorChanged(color);
+    }
+}
+
+void FreehandTool::setStrokeWidth(qreal width)
+{
+    if (!qFuzzyCompare(m_strokeWidth, width)) {
+        m_strokeWidth = width;
+        emit strokeWidthChanged(width);
+    }
+}
+
+void FreehandTool::setStrokeStyle(int style)
+{
+    if (m_strokeStyle != style) {
+        m_strokeStyle = style;
+        emit strokeStyleChanged(style);
+    }
+}
+
 void FreehandTool::deactivated()
 {
     m_down = false;
@@ -28,14 +52,20 @@ void FreehandTool::mousePressEvent(QGraphicsSceneMouseEvent *event, CanvasScene 
     QPointF pt = event->scenePos();
     m_pts.append(pt);
 
-    // 创建预览形状（与 LineTool/RectTool 模式一致）
+    // 创建预览形状（虚线 + 半透明，与图形工具一致）
     m_currentShape = new FreehandShape();
     m_currentShape->setPos(0, 0);
     ShapeStyle s;
     s.fillColor   = Qt::transparent;
-    s.strokeColor = QColor(200, 30, 30);
-    s.strokeWidth = 3.0;
-    m_currentShape->setShapeStyle(s);
+    s.strokeColor = m_strokeColor;
+    s.strokeWidth = m_strokeWidth;
+    s.penStyle    = static_cast<Qt::PenStyle>(m_strokeStyle);
+    // 保存实线样式，预览用虚线+半透明
+    m_realStyle = s;
+    ShapeStyle preview = s;
+    preview.penStyle = Qt::DashLine;
+    m_currentShape->setShapeStyle(preview);
+    m_currentShape->setOpacity(0.5);
     m_currentShape->addPoint(pt);
     m_currentShape->setFinished(false);
     m_currentShape->setFlag(QGraphicsItem::ItemIsMovable, false);
@@ -88,10 +118,15 @@ void FreehandTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScen
     m_currentShape->setFlag(QGraphicsItem::ItemIsMovable, true);
     m_currentShape->setFlag(QGraphicsItem::ItemIsSelectable, true);
 
+    // 恢复实线样式 + 不透明
+    m_currentShape->setShapeStyle(m_realStyle);
+    m_currentShape->setOpacity(1.0);
+
     scene->clearSelection();
     m_currentShape->setSelected(true);
 
-    scene->pushUndoCommand(new AddShapeCommand(m_currentShape, scene, nullptr));
+    scene->pushUndoCommand(new AddShapeCommand(m_currentShape, scene, scene->activeLayer(),
+                                                tr("添加自定图形")));
     scene->setModified(true);
 
     m_currentShape = nullptr;

@@ -1,17 +1,17 @@
-#ifndef ELLIPSESHAPE_H
-#define ELLIPSESHAPE_H
+#ifndef TRIANGLESHAPE_H
+#define TRIANGLESHAPE_H
 
 #include "ShapeBase.h"
 #include <QRectF>
 
-class EllipseShape : public ShapeBase
+class TriangleShape : public ShapeBase
 {
 public:
-    enum { Type = QGraphicsItem::UserType + 3 };
+    enum { Type = QGraphicsItem::UserType + 7 };
     int type() const override { return Type; }
 
-    explicit EllipseShape(QGraphicsItem *parent = nullptr);
-    EllipseShape(const QRectF &rect, QGraphicsItem *parent = nullptr);
+    explicit TriangleShape(QGraphicsItem *parent = nullptr);
+    TriangleShape(const QRectF &rect, QGraphicsItem *parent = nullptr);
 
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
@@ -35,4 +35,4 @@ private:
     QRectF m_rect;
 };
 
-#endif // ELLIPSESHAPE_H
+#endif // TRIANGLESHAPE_H

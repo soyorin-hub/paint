@@ -4,6 +4,7 @@
 #include <QGraphicsItem>
 #include <QJsonObject>
 #include <QVector>
+#include <QLineF>
 #include "style/ShapeStyle.h"
 
 // 手柄类型
@@ -35,6 +36,28 @@ public:
     virtual QPainterPath shape() const { return QGraphicsItem::shape(); }
     virtual bool contains(const QPointF &point) const override;
 
+    // 几何尺寸（对基于矩形的图形有效，其余返回空 QSizeF）
+    virtual QSizeF size() const { return QSizeF(); }
+    // 设置几何尺寸（对基于矩形的图形有效，其余默认无操作）
+    virtual void setSize(const QSizeF &size) { Q_UNUSED(size) }
+    // 内容包围盒（不含描边/手柄余量），用于对齐；默认退回 boundingRect
+    virtual QRectF contentRect() const { return boundingRect(); }
+
+    // ===== 线段类图形（线段/箭头）的端点手柄 =====
+    // 返回 true 表示使用「两端点 + 中心点」手柄，而非默认的 8 向缩放框
+    virtual bool usesEndpointHandles() const { return false; }
+    // 顶点访问：0 = 起点，1 = 中心（可弯折），2 = 终点
+    virtual QPointF linePoint(int index) const { Q_UNUSED(index) return QPointF(); }
+    virtual void setLinePoint(int index, const QPointF &pt) { Q_UNUSED(index) Q_UNUSED(pt) }
+
+    // ===== 名称 =====
+    QString shapeName() const { return m_shapeName; }
+    void setShapeName(const QString &name);
+
+    // ===== 编组 =====
+    qint64 groupId() const { return m_groupId; }
+    void setGroupId(qint64 id) { m_groupId = id; }
+
     // ===== 选中手柄 =====
     // 返回 9 个手柄在本地坐标系中的位置
     virtual QVector<QPointF> handlePositions() const;
@@ -45,6 +68,7 @@ public:
     // ===== 编辑手柄 =====
     virtual void setP2(const QPointF &p2) { Q_UNUSED(p2) }
     virtual bool isFinished() const { return true; }
+    virtual void setFinished(bool f) { Q_UNUSED(f) }
 
     // ===== 变换 =====
     qreal rotationAngle() const { return m_rotation; }
@@ -61,11 +85,11 @@ public:
     static constexpr qreal HANDLE_TOP_CLEARANCE = 18.0;
 
 protected:
-    void updateStylePen();
-
     ShapeStyle m_style;
     bool m_finished = true;
     qreal m_rotation = 0.0;   // 旋转角度（度）
+    QString m_shapeName;       // 图形名称（用户可修改）
+    qint64 m_groupId = -1;     // 编组 ID（-1 表示未编组）
 };
 
 #endif // SHAPEBASE_H

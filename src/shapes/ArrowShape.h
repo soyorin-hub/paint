@@ -1,17 +1,17 @@
-#ifndef LINESHAPE_H
-#define LINESHAPE_H
+#ifndef ARROWSHAPE_H
+#define ARROWSHAPE_H
 
 #include "ShapeBase.h"
 #include <QLineF>
 
-class LineShape : public ShapeBase
+class ArrowShape : public ShapeBase
 {
 public:
-    enum { Type = QGraphicsItem::UserType + 4 };
+    enum { Type = QGraphicsItem::UserType + 9 };
     int type() const override { return Type; }
 
-    explicit LineShape(QGraphicsItem *parent = nullptr);
-    LineShape(const QLineF &line, QGraphicsItem *parent = nullptr);
+    explicit ArrowShape(QGraphicsItem *parent = nullptr);
+    ArrowShape(const QLineF &line, QGraphicsItem *parent = nullptr);
 
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
@@ -39,4 +39,4 @@ private:
     QPointF m_center;   // 可拖动的中心顶点（初始为中点，弯折后独立）
 };
 
-#endif // LINESHAPE_H
+#endif // ARROWSHAPE_H

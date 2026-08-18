@@ -1,17 +1,17 @@
-#ifndef ELLIPSESHAPE_H
-#define ELLIPSESHAPE_H
+#ifndef DIAMONDSHAPE_H
+#define DIAMONDSHAPE_H
 
 #include "ShapeBase.h"
 #include <QRectF>
 
-class EllipseShape : public ShapeBase
+class DiamondShape : public ShapeBase
 {
 public:
-    enum { Type = QGraphicsItem::UserType + 3 };
+    enum { Type = QGraphicsItem::UserType + 8 };
     int type() const override { return Type; }
 
-    explicit EllipseShape(QGraphicsItem *parent = nullptr);
-    EllipseShape(const QRectF &rect, QGraphicsItem *parent = nullptr);
+    explicit DiamondShape(QGraphicsItem *parent = nullptr);
+    DiamondShape(const QRectF &rect, QGraphicsItem *parent = nullptr);
 
     QRectF boundingRect() const override;
     QPainterPath shape() const override;
@@ -35,4 +35,4 @@ private:
     QRectF m_rect;
 };
 
-#endif // ELLIPSESHAPE_H
+#endif // DIAMONDSHAPE_H

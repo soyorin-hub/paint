@@ -27,6 +27,9 @@ public:
     // 获取/设置矩形
     QRectF rect() const { return m_rect; }
     void setRect(const QRectF &rect);
+    QSizeF size() const override { return m_rect.size(); }
+    void setSize(const QSizeF &size) override { setRect(QRectF(QPointF(0, 0), size)); }
+    QRectF contentRect() const override { return m_rect; }
 
     // 圆角
     void setCornerRadius(qreal r) { m_cornerRadius = r; update(); }

@@ -2,6 +2,9 @@
 #include "RectShape.h"
 #include "EllipseShape.h"
 #include "LineShape.h"
+#include "TriangleShape.h"
+#include "DiamondShape.h"
+#include "ArrowShape.h"
 #include "FreehandShape.h"
 #include "TextShape.h"
 
@@ -20,12 +23,12 @@ ShapeBase::ShapeBase(QGraphicsItem *parent)
 void ShapeBase::setShapeStyle(const ShapeStyle &style)
 {
     m_style = style;
-    updateStylePen();
     update();
 }
 
-void ShapeBase::updateStylePen()
+void ShapeBase::setShapeName(const QString &name)
 {
+    m_shapeName = name;
 }
 
 QRectF ShapeBase::selectionBoundingRect() const
@@ -111,10 +114,14 @@ void ShapeBase::paintHandles(QPainter *painter, const QRectF &bodyRect,
 
 void ShapeBase::setRotationAngle(qreal angle)
 {
-    qreal delta = angle - m_rotation;
+    // 设置旋转原点为虚线框（内容区域）中心
+    QRectF br = boundingRect();
+    qreal pad = m_style.strokeWidth / 2.0 + 2.0;
+    QRectF contentRect = br.adjusted(pad, pad, -pad, -pad);
+    setTransformOriginPoint(contentRect.center());
+
     m_rotation = angle;
     setRotation(m_rotation);
-    // 同时更新内部 transform 以支持序列化
     update();
 }
 
@@ -127,6 +134,8 @@ QJsonObject ShapeBase::toJson() const
     obj["style"] = m_style.toJson();
     if (!qFuzzyIsNull(m_rotation))
         obj["rotation"] = m_rotation;
+    if (m_groupId >= 0)
+        obj["group"] = m_groupId;
     return obj;
 }
 
@@ -143,7 +152,7 @@ void ShapeBase::fromJson(const QJsonObject &obj)
     }
     m_rotation = obj["rotation"].toDouble(0.0);
     setRotation(m_rotation);
-    updateStylePen();
+    m_groupId = obj["group"].toInteger(-1);
 }
 
 ShapeBase *ShapeBase::createFromJson(const QJsonObject &obj)
@@ -157,6 +166,12 @@ ShapeBase *ShapeBase::createFromJson(const QJsonObject &obj)
         shape = new EllipseShape();
     } else if (type == "LineShape") {
         shape = new LineShape();
+    } else if (type == "TriangleShape") {
+        shape = new TriangleShape();
+    } else if (type == "DiamondShape") {
+        shape = new DiamondShape();
+    } else if (type == "ArrowShape") {
+        shape = new ArrowShape();
     } else if (type == "FreehandShape") {
         shape = new FreehandShape();
     } else if (type == "TextShape") {
