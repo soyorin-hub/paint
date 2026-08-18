@@ -13,6 +13,7 @@ public:
     TransformCommand(QGraphicsItem *item,
                      const QPointF &oldPos, const QTransform &oldTransform,
                      const QPointF &newPos, const QTransform &newTransform,
+                     const QString &text = QString(),
                      QUndoCommand *parent = nullptr);
 
     void undo() override;

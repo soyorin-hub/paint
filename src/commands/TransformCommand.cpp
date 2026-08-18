@@ -4,8 +4,9 @@
 TransformCommand::TransformCommand(QGraphicsItem *item,
                                      const QPointF &oldPos, const QTransform &oldTransform,
                                      const QPointF &newPos, const QTransform &newTransform,
+                                     const QString &text,
                                      QUndoCommand *parent)
-    : QUndoCommand(QObject::tr("移动/变换"), parent)
+    : QUndoCommand(text.isEmpty() ? QObject::tr("移动/变换") : text, parent)
     , m_item(item)
     , m_oldPos(oldPos), m_newPos(newPos)
     , m_oldTransform(oldTransform), m_newTransform(newTransform)

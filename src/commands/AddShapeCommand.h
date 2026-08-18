@@ -12,7 +12,8 @@ class AddShapeCommand : public QUndoCommand
 {
 public:
     explicit AddShapeCommand(ShapeBase *shape, QGraphicsScene *scene,
-                             Layer *layer, QUndoCommand *parent = nullptr);
+                             Layer *layer, const QString &text = QString(),
+                             QUndoCommand *parent = nullptr);
     ~AddShapeCommand();
 
     void undo() override;

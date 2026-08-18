@@ -4,8 +4,9 @@
 #include <QGraphicsScene>
 
 AddShapeCommand::AddShapeCommand(ShapeBase *shape, QGraphicsScene *scene,
-                                   Layer *layer, QUndoCommand *parent)
-    : QUndoCommand(QObject::tr("添加图形"), parent)
+                                   Layer *layer, const QString &text,
+                                   QUndoCommand *parent)
+    : QUndoCommand(text.isEmpty() ? QObject::tr("添加图形") : text, parent)
     , m_shape(shape)
     , m_scene(scene)
     , m_layer(layer)
