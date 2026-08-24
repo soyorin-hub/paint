@@ -48,11 +48,14 @@ void TextShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
 
     // 选中时显示虚线框 + 手柄
     if (option->state & QStyle::State_Selected) {
-        painter->setPen(QPen(QColor(0, 120, 215), 1.0, Qt::DashLine));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawRect(br);
-
-        paintHandles(painter, br);
+        if (m_directSelected) {
+            paintDirectSelectionHighlights(painter);
+        } else {
+            painter->setPen(QPen(QColor(0, 120, 215), 1.0, Qt::DashLine));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRect(br);
+            paintHandles(painter, br);
+        }
     }
 }
 

@@ -10,6 +10,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include <QPaintEvent>
 #include <cmath>
 
 CanvasView::CanvasView(QWidget *parent) : QGraphicsView(parent)
@@ -28,6 +29,7 @@ CanvasView::CanvasView(QWidget *parent) : QGraphicsView(parent)
 }
 
 void CanvasView::setBackgroundType(int t) { m_bgType = qBound(0, t, 2); viewport()->update(); }
+void CanvasView::setRulersVisible(bool visible) { m_showRulers = visible; viewport()->update(); }
 
 void CanvasView::drawBackground(QPainter *p, const QRectF &r) {
     switch (m_bgType) {
@@ -46,6 +48,91 @@ void CanvasView::drawGridBackground(QPainter *p, const QRectF &r) {
     qreal s=20, l=std::floor(r.left()/s)*s, t=std::floor(r.top()/s)*s;
     for(qreal x=l; x<r.right(); x+=s) p->drawLine(QPointF(x,r.top()), QPointF(x,r.bottom()));
     for(qreal y=t; y<r.bottom(); y+=s) p->drawLine(QPointF(r.left(),y), QPointF(r.right(),y));
+}
+
+qreal CanvasView::niceRulerStep(qreal approx)
+{
+    if (approx < 1e-9) return 1.0;
+    qreal e = std::pow(10.0, std::floor(std::log10(approx)));
+    qreal f = approx / e;
+    qreal nice = (f < 1.5) ? 1.0 : (f < 3.5) ? 2.0 : (f < 7.5) ? 5.0 : 10.0;
+    return nice * e;
+}
+
+void CanvasView::paintEvent(QPaintEvent *event)
+{
+    QGraphicsView::paintEvent(event);
+    if (!m_showRulers) return;
+
+    QPainter p(viewport());
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    // 左上角方块
+    p.fillRect(0, 0, RULER_SIZE, RULER_SIZE, QColor(240, 240, 240));
+    p.setPen(QColor(180, 180, 180));
+    p.drawLine(RULER_SIZE, 0, RULER_SIZE, RULER_SIZE);
+    p.drawLine(0, RULER_SIZE, RULER_SIZE, RULER_SIZE);
+
+    drawRuler(&p, Qt::Horizontal, RULER_SIZE);
+    drawRuler(&p, Qt::Vertical, RULER_SIZE);
+}
+
+void CanvasView::drawRuler(QPainter *p, Qt::Orientation orient, int size)
+{
+    QRect vr = viewport()->rect();
+    QRectF srect = mapToScene(vr).boundingRect();
+
+    qreal approx = 80.0 / m_zoomLevel;   // 主刻度约 80px
+    qreal step = niceRulerStep(approx);
+    qreal minor = step / 5.0;
+
+    QFont f = p->font();
+    f.setPointSizeF(7.0);
+    p->setFont(f);
+    int dec = (step >= 1.0) ? 0 : 1;
+
+    if (orient == Qt::Horizontal) {
+        p->fillRect(0, 0, (int)vr.width(), size, QColor(246, 246, 246));
+        qreal k0 = std::floor(srect.left() / minor);
+        qreal k1 = std::ceil(srect.right() / minor);
+        for (qreal k = k0; k <= k1; k += 1.0) {
+            qreal sx = k * minor;
+            int vx = mapFromScene(QPointF(sx, 0)).x();
+            bool major = (std::llround(k) % 5 == 0);
+            int len = major ? 9 : 4;
+            p->setPen(QPen(QColor(150, 150, 150), 1));
+            p->drawLine(vx, size - len, vx, size);
+            if (major) {
+                p->setPen(QColor(70, 70, 70));
+                p->drawText(QPointF(vx + 3, size - len - 2),
+                            QString::number(sx, 'f', dec));
+            }
+        }
+        p->setPen(QColor(180, 180, 180));
+        p->drawLine(0, size - 1, (int)vr.width(), size - 1);
+    } else {
+        p->fillRect(0, 0, size, (int)vr.height(), QColor(246, 246, 246));
+        qreal k0 = std::floor(srect.top() / minor);
+        qreal k1 = std::ceil(srect.bottom() / minor);
+        for (qreal k = k0; k <= k1; k += 1.0) {
+            qreal sy = k * minor;
+            int vy = mapFromScene(QPointF(0, sy)).y();
+            bool major = (std::llround(k) % 5 == 0);
+            int len = major ? 9 : 4;
+            p->setPen(QPen(QColor(150, 150, 150), 1));
+            p->drawLine(size - len, vy, size, vy);
+            if (major) {
+                p->setPen(QColor(70, 70, 70));
+                p->save();
+                p->translate(size - len - 2, vy + 3);
+                p->rotate(-90);
+                p->drawText(QPointF(0, 0), QString::number(sy, 'f', dec));
+                p->restore();
+            }
+        }
+        p->setPen(QColor(180, 180, 180));
+        p->drawLine(size - 1, 0, size - 1, (int)vr.height());
+    }
 }
 
 qreal CanvasView::zoomLevel() const { return m_zoomLevel; }
@@ -73,6 +160,9 @@ void CanvasView::keyPressEvent(QKeyEvent *event)
     case Qt::Key_Down:  emit nudgeRequested(0, step);  event->accept(); return;
     default: break;
     }
+    // 转发给当前工具（尺子工具用 O/H 切换方向/显示等）
+    if (cs && cs->toolManager())
+        cs->toolManager()->keyPressEvent(event);
     QGraphicsView::keyPressEvent(event);
 }
 

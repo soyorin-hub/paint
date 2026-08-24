@@ -56,7 +56,10 @@ void LineShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
     painter->drawPath(path);
 
     if (option->state & QStyle::State_Selected) {
-        paintHandles(painter, QRectF());
+        if (m_directSelected)
+            paintDirectSelectionHighlights(painter);
+        else
+            paintHandles(painter, QRectF());
     }
 }
 
@@ -82,6 +85,33 @@ void LineShape::setLinePoint(int index, const QPointF &pt)
     default: m_line.setP2(pt); break;
     }
     update();
+}
+
+QVector<QPointF> LineShape::anchorPoints() const
+{
+    return { m_line.p1(), m_center, m_line.p2() };
+}
+
+void LineShape::setAnchorPoint(int index, const QPointF &pt)
+{
+    setLinePoint(index, pt);
+}
+
+void LineShape::setAnchorPoints(const QVector<QPointF> &points)
+{
+    if (points.size() < 3) return;
+    m_line = QLineF(points[0], points[2]);
+    m_center = points[1];
+    update();
+}
+
+QPainterPath LineShape::outlinePath() const
+{
+    QPainterPath path;
+    path.moveTo(m_line.p1());
+    path.lineTo(m_center);
+    path.lineTo(m_line.p2());
+    return path;
 }
 
 void LineShape::setP2(const QPointF &p2)

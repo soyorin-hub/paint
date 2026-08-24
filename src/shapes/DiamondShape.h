@@ -3,6 +3,7 @@
 
 #include "ShapeBase.h"
 #include <QRectF>
+#include <QPolygonF>
 
 class DiamondShape : public ShapeBase
 {
@@ -28,11 +29,19 @@ public:
     void setSize(const QSizeF &size) override { setRect(QRectF(QPointF(0, 0), size)); }
     QRectF contentRect() const override { return m_rect; }
 
+    // 顶点编辑
+    QVector<QPointF> anchorPoints() const override;
+    void setAnchorPoint(int index, const QPointF &pt) override;
+    void setAnchorPoints(const QVector<QPointF> &points) override;
+
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject &obj) override;
 
 private:
-    QRectF m_rect;
+    QRectF m_rect;          // 包围盒（size/resize/对齐用）
+    QPolygonF m_vertices;   // 4 顶点（本地坐标）
+    void setDefaultVertices(const QRectF &r);
+    void updateRectFromVertices();
 };
 
 #endif // DIAMONDSHAPE_H

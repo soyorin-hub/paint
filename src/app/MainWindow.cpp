@@ -20,6 +20,7 @@
 #include <QActionGroup>
 #include <QPushButton>
 #include <QComboBox>
+#include <QToolButton>
 #include <QSpinBox>
 #include <QDoubleSpinBox>
 #include <QFontComboBox>
@@ -34,10 +35,12 @@
 #include "canvas/CanvasScene.h"
 #include "tools/ToolManager.h"
 #include "tools/SelectTool.h"
+#include "tools/DirectSelectTool.h"
 #include "tools/ShapeTool.h"
 #include "tools/FreehandTool.h"
 #include "tools/TextTool.h"
 #include "tools/EraserTool.h"
+#include "tools/RulerTool.h"
 #include "document/Document.h"
 #include "layers/Layer.h"
 #include "layers/LayerPanel.h"
@@ -72,12 +75,14 @@ MainWindow::MainWindow(QWidget *parent)
     m_toolManager = new ToolManager(m_canvasScene, m_undoStack, this);
     m_canvasScene->setToolManager(m_toolManager);
 
-    // 注册工具: 0=选择 1=图形 2=画笔 3=文字 4=橡皮擦
+    // 注册工具: 0=移动 1=直接选择 2=图形 3=自由钢笔 4=文字 5=橡皮擦 6=尺子
     m_toolManager->registerTool(new SelectTool(this));
+    m_toolManager->registerTool(new DirectSelectTool(this));
     m_toolManager->registerTool(new ShapeTool(this));
     m_toolManager->registerTool(new FreehandTool(this));
     m_toolManager->registerTool(new TextTool(this));
     m_toolManager->registerTool(new EraserTool(this));
+    m_toolManager->registerTool(new RulerTool(this));
     m_toolManager->setActiveTool(0);
 
     // 创建文档和文件管理器
@@ -209,6 +214,12 @@ void MainWindow::setupMenuBar()
     QAction *zoomFitAction = viewMenu->addAction(tr("适合窗口(&F)"));
     zoomFitAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_0));
     connect(zoomFitAction, &QAction::triggered, m_canvasView, &CanvasView::zoomFit);
+    viewMenu->addSeparator();
+    QAction *rulersAction = viewMenu->addAction(tr("显示标尺"));
+    rulersAction->setCheckable(true);
+    rulersAction->setChecked(m_canvasView->rulersVisible());
+    rulersAction->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_R));
+    connect(rulersAction, &QAction::toggled, m_canvasView, &CanvasView::setRulersVisible);
     // 背景选择
     QMenu *bgMenu = viewMenu->addMenu(tr("画布背景"));
     QActionGroup *bgGroup = new QActionGroup(this);
@@ -228,6 +239,27 @@ void MainWindow::setupMenuBar()
 
     // 帮助
     QMenu *helpMenu = menuBar()->addMenu(tr("帮助(&H)"));
+    QAction *shortcutsAction = helpMenu->addAction(tr("快捷键(&K)"));
+    connect(shortcutsAction, &QAction::triggered, this, [this]() {
+        const QString text =
+            QStringLiteral("【%1】\n").arg(tr("绘图工具"))
+            + "V — 移动\nA — 直接选择\nS — 图形\nP — 自由钢笔\nT — 文字\nX — 橡皮擦\nR — 尺子\n\n"
+            + QStringLiteral("【%1】\n").arg(tr("尺子工具"))
+            + "O — 切换横/竖\nH — 显示/隐藏\n\n"
+            + QStringLiteral("【%1】\n").arg(tr("文件"))
+            + "Ctrl+N — 新建\nCtrl+O — 打开\nCtrl+S — 保存\nCtrl+Shift+S — 另存为\nCtrl+Q — 退出\n\n"
+            + QStringLiteral("【%1】\n").arg(tr("编辑"))
+            + "Ctrl+Z — 撤销\nCtrl+Y — 重做\nCtrl+X — 剪切\nCtrl+C — 复制\nCtrl+V — 粘贴\n"
+              "Ctrl+D — 重复\nDelete — 删除\nCtrl+A — 全选\n\n"
+            + QStringLiteral("【%1】\n").arg(tr("对象"))
+            + "Ctrl+G — 编组\nCtrl+Shift+G — 解组\nCtrl+Shift+] — 置于顶层\nCtrl+] — 上移一层\n"
+              "Ctrl+[ — 下移一层\nCtrl+Shift+[ — 置于底层\n\n"
+            + QStringLiteral("【%1】\n").arg(tr("视图"))
+            + "Ctrl+= — 放大\nCtrl+- — 缩小\nCtrl+0 — 适合窗口\nCtrl+Shift+R — 显示标尺\n\n"
+            + QStringLiteral("【%1】\n").arg(tr("画布"))
+            + "方向键 — 微调(1px)\nShift+方向键 — 微调(10px)\nCtrl+滚轮 — 缩放\n中键/Alt+左键拖拽 — 平移";
+        QMessageBox::information(this, tr("快捷键"), text);
+    });
     QAction *aboutAction = helpMenu->addAction(tr("关于(&A)"));
     connect(aboutAction, &QAction::triggered, this, [this]() {
         QMessageBox::about(this, tr("关于 Paint"),
@@ -273,12 +305,30 @@ void MainWindow::setupToolBarDraw()
     drawToolBar->setObjectName("drawToolBar");
     drawToolBar->setIconSize(QSize(28, 28));
 
-    drawToolBar->addAction(m_toolManager->createToolAction(0, this)); // 选择
+    drawToolBar->addAction(m_toolManager->createToolAction(0, this)); // 移动
+    drawToolBar->addAction(m_toolManager->createToolAction(1, this)); // 直接选择
     drawToolBar->addSeparator();
-    drawToolBar->addAction(m_toolManager->createToolAction(1, this)); // 图形
-    drawToolBar->addAction(m_toolManager->createToolAction(2, this)); // 画笔
-    drawToolBar->addAction(m_toolManager->createToolAction(3, this)); // 文字
-    drawToolBar->addAction(m_toolManager->createToolAction(4, this)); // 橡皮擦
+    drawToolBar->addAction(m_toolManager->createToolAction(2, this)); // 图形
+    drawToolBar->addAction(m_toolManager->createToolAction(3, this)); // 自由钢笔
+    drawToolBar->addAction(m_toolManager->createToolAction(4, this)); // 文字
+    drawToolBar->addAction(m_toolManager->createToolAction(5, this)); // 橡皮擦
+    drawToolBar->addSeparator();
+    drawToolBar->addAction(m_toolManager->createToolAction(6, this)); // 尺子
+
+    // 尺子方向切换按钮（横/竖）
+    m_rulerOrientationBtn = new QToolButton(this);
+    m_rulerOrientationBtn->setText(tr("横"));
+    m_rulerOrientationBtn->setToolTip(tr("切换尺子方向（横/竖）"));
+    m_rulerOrientationBtn->setCheckable(true);
+    connect(m_rulerOrientationBtn, &QToolButton::clicked,
+            m_canvasScene, &CanvasScene::toggleRulerOrientation);
+    connect(m_canvasScene, &CanvasScene::rulerChanged, this, [this]() {
+        bool horiz = (m_canvasScene->ruler().orientation == Qt::Horizontal);
+        m_rulerOrientationBtn->setText(horiz ? tr("横") : tr("竖"));
+        m_rulerOrientationBtn->setChecked(horiz);
+    });
+    m_rulerOrientationBtn->setChecked(true); // 默认水平
+    drawToolBar->addWidget(m_rulerOrientationBtn);
 
     drawToolBar->addSeparator();
 
@@ -311,14 +361,15 @@ void MainWindow::setupToolBarDraw()
     m_strokeWidthSpin->setSingleStep(0.5);
     m_strokeWidthSpin->setDecimals(1);
     m_strokeWidthSpin->setToolTip(tr("描边宽度"));
-    m_strokeWidthSpin->setMaximumWidth(70);
+    m_strokeWidthSpin->setMaximumWidth(100);
     m_strokeWidthSpin->setSuffix(tr("px"));
     drawToolBar->addWidget(m_strokeWidthSpin);
 
     // 快捷键绑定
     struct { QString key; QString name; } binds[] = {
-        {"V", "选择"}, {"S", "图形"},
-        {"P", "画笔"}, {"T", "文字"}, {"X", "橡皮擦"}
+        {"V", "移动"}, {"A", "直接选择"}, {"S", "图形"},
+        {"P", "自由钢笔"}, {"T", "文字"}, {"X", "橡皮擦"},
+        {"R", "尺子"}
     };
     for (auto &b : binds) {
         connect(new QShortcut(QKeySequence(b.key), this), &QShortcut::activated,

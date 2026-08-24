@@ -108,6 +108,57 @@ void ShapeBase::paintHandles(QPainter *painter, const QRectF &bodyRect,
             painter->drawRect(QRectF(pt.x() - hs / 2.0, pt.y() - hs / 2.0, hs, hs));
         }
     }
+
+    // 画圆角调节手柄：橙色圆点（仅圆角图形有）
+    QVector<QPointF> radiusPts = cornerRadiusHandlePositions();
+    for (const QPointF &pt : radiusPts) {
+        painter->setPen(QPen(QColor(220, 130, 20), 1.5));
+        painter->setBrush(QColor(255, 195, 80));
+        painter->drawEllipse(pt, 3.5, 3.5);
+    }
+}
+
+// ===== 直接选择 =====
+
+void ShapeBase::setDirectSelected(bool on)
+{
+    if (m_directSelected != on) {
+        m_directSelected = on;
+        if (!on) m_hoveredAnchor = -1;
+        update();
+    }
+}
+
+void ShapeBase::setHoveredAnchor(int idx)
+{
+    if (m_hoveredAnchor != idx) {
+        m_hoveredAnchor = idx;
+        update();
+    }
+}
+
+void ShapeBase::paintDirectSelectionHighlights(QPainter *painter) const
+{
+    // 贴边轮廓：白色衬底 + 蓝色细线，保证任何填充/描边下都清晰可见
+    QPainterPath outline = outlinePath();
+    if (!outline.isEmpty()) {
+        painter->setBrush(Qt::NoBrush);
+        painter->setPen(QPen(Qt::white, 3.0));
+        painter->drawPath(outline);
+        painter->setPen(QPen(QColor(0, 120, 215), 1.5));
+        painter->drawPath(outline);
+    }
+
+    // 顶点锚点（青方块，悬停时变大）
+    QVector<QPointF> anchors = anchorPoints();
+    for (int i = 0; i < anchors.size(); ++i) {
+        const QPointF &pt = anchors[i];
+        bool hovered = (i == m_hoveredAnchor);
+        qreal half = hovered ? 4.5 : 3.0;
+        painter->setPen(QPen(Qt::white, 1.0));
+        painter->setBrush(hovered ? QColor(0, 190, 220) : QColor(0, 150, 180));
+        painter->drawRect(QRectF(pt.x() - half, pt.y() - half, half * 2.0, half * 2.0));
+    }
 }
 
 // ===== 旋转 =====

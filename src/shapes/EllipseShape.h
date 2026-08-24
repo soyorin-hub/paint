@@ -3,6 +3,7 @@
 
 #include "ShapeBase.h"
 #include <QRectF>
+#include <QPolygonF>
 
 class EllipseShape : public ShapeBase
 {
@@ -28,11 +29,20 @@ public:
     void setSize(const QSizeF &size) override { setRect(QRectF(QPointF(0, 0), size)); }
     QRectF contentRect() const override { return m_rect; }
 
+    // 顶点编辑（4 个平滑贝塞尔锚点：12/3/6/9 点钟）
+    QVector<QPointF> anchorPoints() const override;
+    void setAnchorPoint(int index, const QPointF &pt) override;
+    void setAnchorPoints(const QVector<QPointF> &points) override;
+
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject &obj) override;
 
 private:
-    QRectF m_rect;
+    QPolygonF m_anchors;   // 4 锚点（12/3/6/9 点钟）
+    QRectF m_rect;         // 包围盒（缓存）
+    QPainterPath buildPath() const;
+    void setDefaultAnchors(const QRectF &r);
+    void updateRectFromAnchors();
 };
 
 #endif // ELLIPSESHAPE_H

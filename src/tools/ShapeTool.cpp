@@ -198,10 +198,10 @@ void ShapeTool::mousePressEvent(QGraphicsSceneMouseEvent *event, CanvasScene *sc
 
 void ShapeTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event, CanvasScene *scene)
 {
-    Q_UNUSED(scene)
     if (!m_drawing || !m_currentShape) return;
 
     QPointF mouse = event->scenePos();
+    mouse = scene->constrainToRuler(mouse, m_startPoint);
     bool alt   = m_altPressed;
     bool shift = event->modifiers() & Qt::ShiftModifier;
 
@@ -274,6 +274,7 @@ void ShapeTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScene *
     m_drawing = false;
 
     QPointF mouse = event->scenePos();
+    mouse = scene->constrainToRuler(mouse, m_startPoint);
     bool alt   = m_altPressed;
     bool shift = event->modifiers() & Qt::ShiftModifier;
 

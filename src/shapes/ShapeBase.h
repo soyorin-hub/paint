@@ -14,6 +14,9 @@ enum HandleType {
     Handle_Right, Handle_BottomRight, Handle_Bottom,
     Handle_BottomLeft, Handle_Left,
     Handle_Rotate,
+    Handle_RadiusTopLeft, Handle_RadiusTopRight,
+    Handle_RadiusBottomRight, Handle_RadiusBottomLeft,
+    Handle_Anchor,
     Handle_Count
 };
 
@@ -61,6 +64,23 @@ public:
     // ===== 选中手柄 =====
     // 返回 9 个手柄在本地坐标系中的位置
     virtual QVector<QPointF> handlePositions() const;
+    // 圆角调节手柄位置（仅支持圆角的图形，如矩形；默认无）
+    virtual QVector<QPointF> cornerRadiusHandlePositions() const { return {}; }
+    // 路径锚点（顶点）编辑：仅自由钢笔等路径图形有；默认无
+    virtual QVector<QPointF> anchorPoints() const { return {}; }
+    virtual void setAnchorPoint(int index, const QPointF &pt) { Q_UNUSED(index) Q_UNUSED(pt) }
+    // 一次性设置全部锚点（撤销用）
+    virtual void setAnchorPoints(const QVector<QPointF> &points) { Q_UNUSED(points) }
+    // 直接选择状态
+    void setDirectSelected(bool on);
+    bool isDirectSelected() const { return m_directSelected; }
+    // 悬停中的锚点（-1 表示无，悬停时该锚点会变大）
+    void setHoveredAnchor(int idx);
+    int hoveredAnchor() const { return m_hoveredAnchor; }
+    // 直接选择时贴合的轮廓（细线，默认返回 shape()）
+    virtual QPainterPath outlinePath() const { return shape(); }
+    // 绘制直接选择高亮（贴边轮廓 + 顶点锚点）
+    void paintDirectSelectionHighlights(QPainter *painter) const;
     // 绘制所有手柄
     void paintHandles(QPainter *painter, const QRectF &bodyRect,
                       bool showRotate = true) const;
@@ -90,6 +110,8 @@ protected:
     qreal m_rotation = 0.0;   // 旋转角度（度）
     QString m_shapeName;       // 图形名称（用户可修改）
     qint64 m_groupId = -1;     // 编组 ID（-1 表示未编组）
+    bool m_directSelected = false;  // 直接选择（顶点编辑）态
+    int  m_hoveredAnchor = -1;      // 悬停的锚点索引
 };
 
 #endif // SHAPEBASE_H

@@ -53,6 +53,10 @@ set(SOURCES
     src/tools/ToolManager.cpp
     src/tools/SelectTool.h
     src/tools/SelectTool.cpp
+    src/tools/DirectSelectTool.h
+    src/tools/DirectSelectTool.cpp
+    src/tools/RulerTool.h
+    src/tools/RulerTool.cpp
     src/tools/ShapeTool.h
     src/tools/ShapeTool.cpp
     src/tools/FreehandTool.h
@@ -98,6 +102,10 @@ set(SOURCES
     src/commands/LayerCommand.cpp
     src/commands/RotateCommand.h
     src/commands/RotateCommand.cpp
+    src/commands/CornerRadiusCommand.h
+    src/commands/CornerRadiusCommand.cpp
+    src/commands/VertexCommand.h
+    src/commands/VertexCommand.cpp
     src/commands/GroupCommand.h
     src/commands/GroupCommand.cpp
     src/commands/ReorderShapesCommand.h

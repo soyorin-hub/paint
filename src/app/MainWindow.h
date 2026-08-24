@@ -16,6 +16,7 @@ class FileManager;
 class QPushButton;
 class QComboBox;
 class QDoubleSpinBox;
+class QToolButton;
 class HistoryPanel;
 class ShapeBase;
 class Layer;
@@ -134,6 +135,9 @@ private:
     QPushButton *m_strokeColorBtn = nullptr;
     QComboBox *m_strokeStyleCombo = nullptr;
     QDoubleSpinBox *m_strokeWidthSpin = nullptr;
+
+    // 尺子方向切换按钮
+    QToolButton *m_rulerOrientationBtn = nullptr;
 };
 
 #endif // MAINWINDOW_H

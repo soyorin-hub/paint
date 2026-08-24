@@ -3,6 +3,39 @@
 #include <QStyleOptionGraphicsItem>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLineF>
+
+namespace {
+// 点到线段 ab 的垂直距离（用于 RDP 简化）
+qreal perpendicularDistance(const QPointF &p, const QPointF &a, const QPointF &b)
+{
+    QPointF ab = b - a;
+    qreal len2 = ab.x() * ab.x() + ab.y() * ab.y();
+    if (len2 < 1e-9)
+        return QLineF(p, a).length();
+    qreal t = qBound(0.0, QPointF::dotProduct(p - a, ab) / len2, 1.0);
+    QPointF proj = a + t * ab;
+    return QLineF(p, proj).length();
+}
+
+// Ramer-Douglas-Peucker：递归输出保留的顶点（out 需预先放入首点）
+void rdpSimplify(const QVector<QPointF> &pts, qreal eps,
+                 QVector<QPointF> &out, int first, int last)
+{
+    qreal maxDist = 0;
+    int index = -1;
+    for (int i = first + 1; i < last; ++i) {
+        qreal d = perpendicularDistance(pts[i], pts[first], pts[last]);
+        if (d > maxDist) { maxDist = d; index = i; }
+    }
+    if (maxDist > eps && index != -1) {
+        rdpSimplify(pts, eps, out, first, index);
+        rdpSimplify(pts, eps, out, index, last);
+    } else {
+        out.append(pts[last]);
+    }
+}
+} // namespace
 
 FreehandShape::FreehandShape(QGraphicsItem *parent)
     : ShapeBase(parent)
@@ -38,12 +71,16 @@ void FreehandShape::paint(QPainter *painter, const QStyleOptionGraphicsItem *opt
     painter->drawPath(m_path);
 
     if (option->state & QStyle::State_Selected) {
-        QRectF br = m_cachedBoundingRect;
-        painter->setPen(QPen(QColor(0, 120, 215), 1.0, Qt::DashLine));
-        painter->setBrush(Qt::NoBrush);
-        painter->drawRect(br.adjusted(-3, -3, 3, 3));
+        if (m_directSelected) {
+            paintDirectSelectionHighlights(painter);
+        } else {
+            QRectF br = m_cachedBoundingRect;
+            painter->setPen(QPen(QColor(0, 120, 215), 1.0, Qt::DashLine));
+            painter->setBrush(Qt::NoBrush);
+            painter->drawRect(br.adjusted(-3, -3, 3, 3));
 
-        paintHandles(painter, br);
+            paintHandles(painter, br);
+        }
     }
 }
 
@@ -88,6 +125,49 @@ void FreehandShape::setPath(const QPainterPath &path)
         m_points.append(QPointF(el.x, el.y));
     }
     m_cachedBoundingRect = m_path.boundingRect();
+    update();
+}
+
+QVector<QPointF> FreehandShape::anchorPoints() const
+{
+    return m_points;
+}
+
+void FreehandShape::setAnchorPoint(int index, const QPointF &pt)
+{
+    if (index < 0 || index >= m_points.size()) return;
+    if (m_points[index] == pt) return;
+    m_points[index] = pt;
+    rebuildPath();
+    update();
+}
+
+void FreehandShape::setPoints(const QVector<QPointF> &points)
+{
+    m_points = points;
+    rebuildPath();
+    update();
+}
+
+void FreehandShape::setAnchorPoints(const QVector<QPointF> &points)
+{
+    setPoints(points);
+}
+
+QPainterPath FreehandShape::outlinePath() const
+{
+    return m_path;
+}
+
+void FreehandShape::simplify(qreal epsilon)
+{
+    if (m_points.size() <= 2) return;
+    QVector<QPointF> out;
+    out.reserve(m_points.size());
+    out.append(m_points.first());
+    rdpSimplify(m_points, epsilon, out, 0, m_points.size() - 1);
+    m_points = out;
+    rebuildPath();
     update();
 }
 

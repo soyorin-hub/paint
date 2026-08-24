@@ -77,10 +77,11 @@ void FreehandTool::mousePressEvent(QGraphicsSceneMouseEvent *event, CanvasScene 
 
 void FreehandTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event, CanvasScene *scene)
 {
-    Q_UNUSED(scene)
     if (!m_down || !m_currentShape) return;
 
     QPointF pt = event->scenePos();
+    if (!m_pts.isEmpty())
+        pt = scene->constrainToRuler(pt, m_pts.first());
     // 过滤过近的点，避免路径过于密集
     if (!m_pts.isEmpty() && QLineF(m_pts.last(), pt).length() < 3.0) return;
 
@@ -93,8 +94,11 @@ void FreehandTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScen
     if (!m_down || !m_currentShape) return;
     m_down = false;
 
-    m_pts.append(event->scenePos());
-    m_currentShape->addPoint(event->scenePos());
+    QPointF finalPt = event->scenePos();
+    if (!m_pts.isEmpty())
+        finalPt = scene->constrainToRuler(finalPt, m_pts.first());
+    m_pts.append(finalPt);
+    m_currentShape->addPoint(finalPt);
 
     // 去重+过滤：路径太短则丢弃
     if (m_pts.size() < 2) {
@@ -113,6 +117,9 @@ void FreehandTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScen
         m_pts.clear();
         return;
     }
+
+    // 简化密集采样点为锚点
+    m_currentShape->simplify();
 
     m_currentShape->setFinished(true);
     m_currentShape->setFlag(QGraphicsItem::ItemIsMovable, true);

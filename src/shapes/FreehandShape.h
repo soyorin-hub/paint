@@ -29,6 +29,15 @@ public:
     const QPainterPath &path() const { return m_path; }
     void setPath(const QPainterPath &path);
 
+    // 锚点编辑
+    QVector<QPointF> anchorPoints() const override;
+    void setAnchorPoint(int index, const QPointF &pt) override;
+    void setAnchorPoints(const QVector<QPointF> &points) override;
+    QPainterPath outlinePath() const override;
+    const QVector<QPointF> &points() const { return m_points; }
+    void setPoints(const QVector<QPointF> &points);
+    void simplify(qreal epsilon = 3.0);
+
     QJsonObject toJson() const override;
     void fromJson(const QJsonObject &obj) override;
 

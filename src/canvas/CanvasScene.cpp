@@ -10,6 +10,7 @@
 #include <QGraphicsSceneMouseEvent>
 #include <QTextCursor>
 #include <QUndoStack>
+#include <QPainter>
 
 CanvasScene::CanvasScene(QObject *parent) : QGraphicsScene(parent)
 {
@@ -47,6 +48,72 @@ void CanvasScene::endUndoMacro()
 Layer *CanvasScene::activeLayer() const
 {
     return m_document ? m_document->activeLayer() : nullptr;
+}
+
+// ===== 尺子（约束）指南 =====
+
+void CanvasScene::setRuler(const RulerGuide &r)
+{
+    m_ruler = r;
+    emit rulerChanged();
+    update();
+}
+
+void CanvasScene::setRulerPosition(qreal pos)
+{
+    m_ruler.position = pos;
+    emit rulerChanged();
+    update();
+}
+
+void CanvasScene::setRulerOrientation(Qt::Orientation orient)
+{
+    m_ruler.orientation = orient;
+    emit rulerChanged();
+    update();
+}
+
+void CanvasScene::setRulerVisible(bool visible)
+{
+    m_ruler.visible = visible;
+    emit rulerChanged();
+    update();
+}
+
+void CanvasScene::toggleRulerOrientation()
+{
+    m_ruler.orientation = (m_ruler.orientation == Qt::Horizontal)
+                              ? Qt::Vertical : Qt::Horizontal;
+    emit rulerChanged();
+    update();
+}
+
+QPointF CanvasScene::constrainToRuler(const QPointF &scenePos,
+                                      const QPointF &refScenePos) const
+{
+    if (!m_ruler.visible) return scenePos;
+    QPointF p = scenePos;
+    if (m_ruler.orientation == Qt::Horizontal) {
+        qreal y = m_ruler.position;
+        p.setY(refScenePos.y() >= y ? qMax(p.y(), y) : qMin(p.y(), y));
+    } else {
+        qreal x = m_ruler.position;
+        p.setX(refScenePos.x() >= x ? qMax(p.x(), x) : qMin(p.x(), x));
+    }
+    return p;
+}
+
+void CanvasScene::drawForeground(QPainter *painter, const QRectF &rect)
+{
+    if (!m_ruler.visible) return;
+    painter->setPen(QPen(QColor(255, 120, 50), 1.5));
+    if (m_ruler.orientation == Qt::Horizontal) {
+        qreal y = m_ruler.position;
+        painter->drawLine(QPointF(rect.left(), y), QPointF(rect.right(), y));
+    } else {
+        qreal x = m_ruler.position;
+        painter->drawLine(QPointF(x, rect.top()), QPointF(x, rect.bottom()));
+    }
 }
 
 // ===== 鼠标事件（编辑文字时交给编辑器，否则转发给工具） =====

@@ -28,6 +28,12 @@ public:
     QPointF linePoint(int index) const override;
     void setLinePoint(int index, const QPointF &pt) override;
 
+    // 顶点编辑
+    QVector<QPointF> anchorPoints() const override;
+    void setAnchorPoint(int index, const QPointF &pt) override;
+    void setAnchorPoints(const QVector<QPointF> &points) override;
+    QPainterPath outlinePath() const override;
+
     QLineF line() const { return m_line; }
     void setLine(const QLineF &line);
 

@@ -6,8 +6,9 @@
 #include "shapes/DiamondShape.h"
 #include "commands/TransformCommand.h"
 #include "commands/LineCommand.h"
-#include "commands/ResizeCommand.h"
 #include "commands/RotateCommand.h"
+#include "commands/CornerRadiusCommand.h"
+#include "commands/VertexCommand.h"
 #include <QGraphicsSceneMouseEvent>
 #include <QGraphicsItem>
 #include <QGraphicsRectItem>
@@ -24,9 +25,17 @@ SelectTool::SelectTool(QObject *parent)
 // 检测鼠标位置对应的手柄
 HandleType SelectTool::handleAt(const QPointF &scenePos, ShapeBase *shape) const
 {
-    QVector<QPointF> handles = shape->handlePositions();
     qreal threshold = 10.0;
 
+    // 圆角手柄优先（位于缩放手柄内侧）
+    QVector<QPointF> radiusHandles = shape->cornerRadiusHandlePositions();
+    for (int i = 0; i < radiusHandles.size(); ++i) {
+        QPointF scenePt = shape->mapToScene(radiusHandles[i]);
+        if (QLineF(scenePos, scenePt).length() < threshold)
+            return static_cast<HandleType>(Handle_RadiusTopLeft + i);
+    }
+
+    QVector<QPointF> handles = shape->handlePositions();
     for (int i = 0; i < handles.size(); ++i) {
         QPointF localPt = handles[i];
         QPointF scenePt = shape->mapToScene(localPt);
@@ -55,6 +64,11 @@ QCursor SelectTool::cursorForHandle(HandleType h)
         return Qt::SizeHorCursor;     // ↔ 水平双向箭头
     case Handle_Rotate:
         return Qt::CrossCursor;       // 旋转光标
+    case Handle_RadiusTopLeft:
+    case Handle_RadiusTopRight:
+    case Handle_RadiusBottomRight:
+    case Handle_RadiusBottomLeft:
+        return Qt::SizeAllCursor;     // 圆角调节
     default:
         return Qt::ArrowCursor;
     }
@@ -133,6 +147,13 @@ void SelectTool::mousePressEvent(QGraphicsSceneMouseEvent *event, CanvasScene *s
             m_originalLine = QLineF(shape->linePoint(0), shape->linePoint(2));
             m_originalCenter = shape->linePoint(1);
             m_originalSize = shape->size();
+            m_originalVertices = shape->anchorPoints();
+            if (auto *rs = dynamic_cast<RectShape*>(shape)) {
+                m_origRadiusTL = rs->cornerRadiusTopLeft();
+                m_origRadiusTR = rs->cornerRadiusTopRight();
+                m_origRadiusBR = rs->cornerRadiusBottomRight();
+                m_origRadiusBL = rs->cornerRadiusBottomLeft();
+            }
             return;
         }
     }
@@ -228,9 +249,13 @@ void SelectTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event, CanvasScene *sc
                                        event->scenePos().x() - center.x());
             qreal deltaDeg = (angle2 - angle1) * 180.0 / M_PI;
             shape->setRotationAngle(m_originalRotate + deltaDeg);
+        } else if (m_activeHandle >= Handle_RadiusTopLeft && m_activeHandle <= Handle_RadiusBottomLeft) {
+            // 圆角调节
+            applyCornerRadius(shape, m_activeHandle, event->scenePos());
         } else {
-            // 缩放：对边/对顶点保持不变
-            applyResize(shape, m_activeHandle, event->scenePos());
+            // 缩放：对边/对顶点保持不变（受尺子约束）
+            QPointF clamped = scene->constrainToRuler(event->scenePos(), m_originalPos);
+            applyResize(shape, m_activeHandle, clamped);
         }
         scene->setModified(true);
         return;
@@ -239,8 +264,23 @@ void SelectTool::mouseMoveEvent(QGraphicsSceneMouseEvent *event, CanvasScene *sc
     if (m_movingItem && !m_moveItems.isEmpty() && (event->buttons() & Qt::LeftButton)) {
         QPointF delta = event->scenePos() - m_lastScenePos;
         m_lastScenePos = event->scenePos();
-        for (auto *it : m_moveItems)
-            it->moveBy(delta.x(), delta.y());
+        RulerGuide ruler = scene->ruler();
+        for (auto *it : m_moveItems) {
+            QPointF d = delta;
+            if (ruler.visible) {
+                QRectF box = it->sceneBoundingRect();
+                if (ruler.orientation == Qt::Horizontal) {
+                    qreal y = ruler.position;
+                    if (box.bottom() <= y)       d.setY(qMin(d.y(), y - box.bottom()));
+                    else if (box.top() >= y)     d.setY(qMax(d.y(), y - box.top()));
+                } else {
+                    qreal x = ruler.position;
+                    if (box.right() <= x)        d.setX(qMin(d.x(), x - box.right()));
+                    else if (box.left() >= x)    d.setX(qMax(d.x(), x - box.left()));
+                }
+            }
+            it->moveBy(d.x(), d.y());
+        }
         scene->setModified(true);
         // 拖动过程中保持小手光标
         setViewCursor(scene, Qt::ClosedHandCursor);
@@ -282,11 +322,24 @@ void SelectTool::mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScene 
                 if (shape->rotationAngle() != m_originalRotate)
                     scene->pushUndoCommand(new RotateCommand(
                         shape, m_originalRotate, shape->rotationAngle()));
+            } else if (m_activeHandle >= Handle_RadiusTopLeft && m_activeHandle <= Handle_RadiusBottomLeft) {
+                auto *rs = dynamic_cast<RectShape*>(shape);
+                if (rs &&
+                    (rs->cornerRadiusTopLeft() != m_origRadiusTL
+                     || rs->cornerRadiusTopRight() != m_origRadiusTR
+                     || rs->cornerRadiusBottomRight() != m_origRadiusBR
+                     || rs->cornerRadiusBottomLeft() != m_origRadiusBL)) {
+                    scene->pushUndoCommand(new CornerRadiusCommand(
+                        rs, m_origRadiusTL, m_origRadiusTR, m_origRadiusBR, m_origRadiusBL,
+                        rs->cornerRadiusTopLeft(), rs->cornerRadiusTopRight(),
+                        rs->cornerRadiusBottomRight(), rs->cornerRadiusBottomLeft(),
+                        tr("调节圆角")));
+                }
             } else if (!shape->size().isEmpty()) {
-                // 矩形类缩放：同时记录位置与尺寸
-                scene->pushUndoCommand(new ResizeCommand(
-                    shape, m_originalPos, m_originalSize,
-                    shape->pos(), shape->size(), tr("缩放图形")));
+                // 多边形/椭圆缩放：保存顶点，保留变形
+                if (shape->anchorPoints() != m_originalVertices)
+                    scene->pushUndoCommand(new VertexCommand(
+                        shape, m_originalVertices, shape->anchorPoints(), tr("缩放图形")));
             } else {
                 // 自由画笔/文字：缩放体现在 transform 中
                 scene->pushUndoCommand(new TransformCommand(
@@ -346,6 +399,68 @@ void SelectTool::applyResize(ShapeBase *shape, HandleType handle, const QPointF 
     QPointF localPt(shifted.x() * cosR - shifted.y() * sinR,
                     shifted.x() * sinR + shifted.y() * cosR);
 
+    auto *rectShape = dynamic_cast<RectShape*>(shape);
+    auto *ellipseShape = dynamic_cast<EllipseShape*>(shape);
+    auto *triangleShape = dynamic_cast<TriangleShape*>(shape);
+    auto *diamondShape = dynamic_cast<DiamondShape*>(shape);
+
+    // ===== 多边形/椭圆：按比例缩放顶点，保留变形 =====
+    if (rectShape || ellipseShape || triangleShape || diamondShape) {
+        if (m_originalVertices.isEmpty()) return;
+        QRectF bounds;
+        bool first = true;
+        for (const QPointF &v : m_originalVertices) {
+            if (first) { bounds = QRectF(v, v); first = false; }
+            else {
+                bounds.setLeft(qMin(bounds.left(), v.x()));
+                bounds.setRight(qMax(bounds.right(), v.x()));
+                bounds.setTop(qMin(bounds.top(), v.y()));
+                bounds.setBottom(qMax(bounds.bottom(), v.y()));
+            }
+        }
+        if (bounds.width() < 1e-6) bounds.setWidth(1.0);
+        if (bounds.height() < 1e-6) bounds.setHeight(1.0);
+
+        QPointF anchor;
+        bool scaleX = true, scaleY = true;
+        switch (handle) {
+        case Handle_TopLeft:     anchor = bounds.bottomRight(); break;
+        case Handle_Top:         anchor = QPointF(bounds.center().x(), bounds.bottom()); scaleX = false; break;
+        case Handle_TopRight:    anchor = bounds.bottomLeft(); break;
+        case Handle_Right:       anchor = QPointF(bounds.left(), bounds.center().y()); scaleY = false; break;
+        case Handle_BottomRight: anchor = bounds.topLeft(); break;
+        case Handle_Bottom:      anchor = QPointF(bounds.center().x(), bounds.top()); scaleX = false; break;
+        case Handle_BottomLeft:  anchor = bounds.topRight(); break;
+        case Handle_Left:        anchor = QPointF(bounds.right(), bounds.center().y()); scaleY = false; break;
+        default: return;
+        }
+
+        qreal minW = 5.0, minH = 5.0;
+        qreal sx = 1.0, sy = 1.0;
+        if (scaleX) {
+            qreal movingX = (handle == Handle_TopLeft || handle == Handle_BottomLeft)
+                                ? bounds.left() : bounds.right();
+            if (qAbs(movingX - anchor.x()) > 1e-6)
+                sx = (localPt.x() - anchor.x()) / (movingX - anchor.x());
+            sx = qMax(sx, minW / bounds.width());
+        }
+        if (scaleY) {
+            qreal movingY = (handle == Handle_TopLeft || handle == Handle_TopRight)
+                                ? bounds.top() : bounds.bottom();
+            if (qAbs(movingY - anchor.y()) > 1e-6)
+                sy = (localPt.y() - anchor.y()) / (movingY - anchor.y());
+            sy = qMax(sy, minH / bounds.height());
+        }
+
+        QVector<QPointF> verts = m_originalVertices;
+        for (QPointF &v : verts) {
+            v.setX(anchor.x() + (v.x() - anchor.x()) * sx);
+            v.setY(anchor.y() + (v.y() - anchor.y()) * sy);
+        }
+        shape->setAnchorPoints(verts);
+        return;
+    }
+
     QRectF r = m_originalRect;
 
     // 保持宽高最小限制
@@ -384,34 +499,10 @@ void SelectTool::applyResize(ShapeBase *shape, HandleType handle, const QPointF 
     if (r.width() < minW) r.setWidth(minW);
     if (r.height() < minH) r.setHeight(minH);
 
-    // 位置 delta（本地坐标）→ 转回场景坐标
-    QPointF localDelta = r.topLeft() - m_originalRect.topLeft();
     qreal cosFwd = std::cos(rotRad), sinFwd = std::sin(rotRad);
-    QPointF sceneDelta(localDelta.x() * cosFwd - localDelta.y() * sinFwd,
-                       localDelta.x() * sinFwd + localDelta.y() * cosFwd);
 
-    // 根据类型更新形状
-    auto *rectShape = dynamic_cast<RectShape*>(shape);
-    auto *ellipseShape = dynamic_cast<EllipseShape*>(shape);
-    auto *triangleShape = dynamic_cast<TriangleShape*>(shape);
-    auto *diamondShape = dynamic_cast<DiamondShape*>(shape);
-
-    if (rectShape || ellipseShape || triangleShape || diamondShape) {
-        if (rectShape) {
-            rectShape->setPos(m_originalPos + sceneDelta);
-            rectShape->setRect(QRectF(QPointF(0, 0), r.size()));
-        } else if (ellipseShape) {
-            ellipseShape->setPos(m_originalPos + sceneDelta);
-            ellipseShape->setRect(QRectF(QPointF(0, 0), r.size()));
-        } else if (triangleShape) {
-            triangleShape->setPos(m_originalPos + sceneDelta);
-            triangleShape->setRect(QRectF(QPointF(0, 0), r.size()));
-        } else if (diamondShape) {
-            diamondShape->setPos(m_originalPos + sceneDelta);
-            diamondShape->setRect(QRectF(QPointF(0, 0), r.size()));
-        }
-    } else {
-        // LineShape / FreehandShape：以对边/对顶点为基准进行缩放
+    // 线段/自由画笔：以对边/对顶点为基准进行缩放（transform）
+    {
         QPointF anchor;
         bool scaleX = true, scaleY = true;
 
@@ -458,6 +549,25 @@ void SelectTool::applyResize(ShapeBase *shape, HandleType handle, const QPointF 
         shape->setPos(m_originalPos + scenePosDelta);
         shape->setTransform(QTransform().scale(sx, sy));
     }
+}
+
+void SelectTool::applyCornerRadius(ShapeBase *shape, HandleType handle, const QPointF &newScenePos)
+{
+    auto *rs = dynamic_cast<RectShape*>(shape);
+    if (!rs) return;
+
+    int idx = -1;
+    switch (handle) {
+    case Handle_RadiusTopLeft:     idx = 0; break;
+    case Handle_RadiusTopRight:    idx = 1; break;
+    case Handle_RadiusBottomRight: idx = 2; break;
+    case Handle_RadiusBottomLeft:  idx = 3; break;
+    default: return;
+    }
+
+    // 圆角拖拽不改变 pos()，可直接用 mapFromScene 得到本地坐标（正确处理旋转）
+    QPointF localPt = rs->mapFromScene(newScenePos);
+    rs->setCornerRadiusFromPoint(idx, localPt);
 }
 
 // 端点手柄拖拽：index 0 = 起点，1 = 中心（弯折），2 = 终点

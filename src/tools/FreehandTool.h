@@ -20,7 +20,7 @@ public:
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScene *scene) override;
     void deactivated() override;
 
-    QString name() const override { return tr("画笔"); }
+    QString name() const override { return tr("自由钢笔"); }
     QIcon icon() const override { return QIcon(":/icons/freehand.svg"); }
     QCursor cursor() const override { return Qt::CrossCursor; }
     QString shortcut() const override { return "P"; }

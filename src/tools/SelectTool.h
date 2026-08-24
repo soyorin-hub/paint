@@ -19,7 +19,7 @@ public:
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event, CanvasScene *scene) override;
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event, CanvasScene *scene) override;
 
-    QString name() const override { return tr("选择"); }
+    QString name() const override { return tr("移动"); }
     QIcon icon() const override { return QIcon(":/icons/select.svg"); }
     QCursor cursor() const override { return Qt::ArrowCursor; }
     QString shortcut() const override { return "V"; }
@@ -28,6 +28,7 @@ public:
 private:
     HandleType handleAt(const QPointF &scenePos, ShapeBase *shape) const;
     void applyResize(ShapeBase *shape, HandleType handle, const QPointF &newScenePos);
+    void applyCornerRadius(ShapeBase *shape, HandleType handle, const QPointF &newScenePos);
     void dragLineEndpoint(ShapeBase *shape, int handleIndex, const QPointF &scenePos);
 
     // 根据手柄类型返回对应的双向箭头光标
@@ -49,7 +50,10 @@ private:
     QLineF m_originalLine;   // 端点拖拽前的原始线段
     QPointF m_originalCenter; // 端点拖拽前的原始中心点
     QSizeF m_originalSize;   // 矩形类缩放前的原始尺寸
+    QVector<QPointF> m_originalVertices; // 多边形缩放前的原始顶点
     qreal m_originalRotate = 0;
+    qreal m_origRadiusTL = 0, m_origRadiusTR = 0;
+    qreal m_origRadiusBR = 0, m_origRadiusBL = 0;
 
     // 多选移动（含编组联动）
     QList<QGraphicsItem*> m_moveItems;

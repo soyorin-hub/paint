@@ -3,6 +3,10 @@
         <file>theme.qss</file>
         <file>icons/app.svg</file>
         <file>icons/select.svg</file>
+        <file>icons/direct-select.svg</file>
+        <file>icons/ruler.svg</file>
+        <file>icons/up-arrow.svg</file>
+        <file>icons/down-arrow.svg</file>
         <file>icons/rect.svg</file>
         <file>icons/ellipse.svg</file>
         <file>icons/line.svg</file>
